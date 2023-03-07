@@ -53,7 +53,7 @@ class BaseEvent:
                 description=description,
                 start_date='07-03-2023 19:00',
                 end_date='07-03-2023 19:10',
-                email='kocherizhkin@gmail.com'
+                email=email
             )
             event_service.create_event(body=body, send_notification=True)
             logging.info(f'  Event #{i} for {email} has been created.')
