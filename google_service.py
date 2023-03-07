@@ -1,18 +1,14 @@
 from __future__ import print_function
 
-import json
 import os
 import os.path
 from datetime import datetime
 
-import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-from config import logger, GOOGLE_API_KEY
 
 
 class BaseGoogleAPI:
@@ -113,17 +109,3 @@ class GoogleCalendarAPI(BaseGoogleAPI):
             body=body
         ).execute()
         return response
-
-
-def get_spreadsheet_info(raw_url: str) -> dict:
-    """
-    Get raw url of your google sheet and return description info about your spreadsheet.
-    :param raw_url: Raw your of your google spreadsheet
-    :return: Content: {'spreadsheetId': 'spreadsheet_id', 'properties': {'title': 'spreadsheet_title', 'locale': 'en_US', 'autoRecalc': 'ON_CHANGE', 'timeZone': 'Europe/Moscow', 'defaultFormat': {'backgroundColor': {'red': 1, 'green': 1, 'blue': 1}, 'padding': {'top': 2, 'right': 3, 'bottom': 2, 'left': 3}, 'verticalAlignment': 'BOTTOM', 'wrapStrategy': 'OVERFLOW_CELL', 'textFormat': {'foregroundColor': {}, 'fontFamily': 'arial,sans,sans-serif', 'fontSize': 10, 'bold': False, 'italic': False, 'strikethrough': False, 'underline': False, 'foregroundColorStyle': {'rgbColor': {}}}, 'backgroundColorStyle': {'rgbColor': {'red': 1, 'green': 1, 'blue': 1}}}, 'spreadsheetTheme': {'primaryFontFamily': 'Arial', 'themeColors': [{'colorType': 'TEXT', 'color': {'rgbColor': {}}}, {'colorType': 'BACKGROUND', 'color': {'rgbColor': {'red': 1, 'green': 1, 'blue': 1}}}, {'colorType': 'ACCENT1', 'color': {'rgbColor': {'red': 0.25882354, 'green': 0.52156866, 'blue': 0.95686275}}}, {'colorType': 'ACCENT2', 'color': {'rgbColor': {'red': 0.91764706, 'green': 0.2627451, 'blue': 0.20784314}}}, {'colorType': 'ACCENT3', 'color': {'rgbColor': {'red': 0.9843137, 'green': 0.7372549, 'blue': 0.015686275}}}, {'colorType': 'ACCENT4', 'color': {'rgbColor': {'red': 0.20392157, 'green': 0.65882355, 'blue': 0.3254902}}}, {'colorType': 'ACCENT5', 'color': {'rgbColor': {'red': 1, 'green': 0.42745098, 'blue': 0.003921569}}}, {'colorType': 'ACCENT6', 'color': {'rgbColor': {'red': 0.27450982, 'green': 0.7411765, 'blue': 0.7764706}}}, {'colorType': 'LINK', 'color': {'rgbColor': {'red': 0.06666667, 'green': 0.33333334, 'blue': 0.8}}}]}}, 'sheets': [{'properties': {'sheetId': 0, 'title': 'Sheet1', 'index': 0, 'sheetType': 'GRID', 'gridProperties': {'rowCount': 1000, 'columnCount': 26}}}], 'spreadsheetUrl': 'spreadsheet_url'}
-    """
-    logger.info('Getting info about spreadsheet')
-    spreadsheet_id = raw_url.split('/d/')[1].split('/')[0]
-    url = f'https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}?key={GOOGLE_API_KEY}&alt=json'
-    bytes_data = requests.get(url).content
-    content = json.loads(bytes_data.decode('utf-8'))
-    return content
