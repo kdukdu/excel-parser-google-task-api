@@ -1,25 +1,26 @@
 from __future__ import print_function
 
+import json
 import os
 import os.path
 from datetime import datetime
 
-import pandas as pd
-from dotenv import load_dotenv
+import requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-load_dotenv()
+from config import logger, GOOGLE_API_KEY
 
 
-class BaseGoogleApi:
-    TOKEN_FILE_NAME = os.getenv('TOKEN_FILE_NAME')
-    API_NAME = os.getenv('API_NAME')
-    API_VERSION = os.getenv('API_VERSION')
-    SCOPES = ['https://www.googleapis.com/auth/tasks']
+class BaseGoogleAPI:
+    GOOGLE_SERVICES = {
+        'calendar': {'api_name': 'calendar',
+                     'api_version': 'v3',
+                     'scopes': ['https://www.googleapis.com/auth/calendar']}
+    }
 
     @staticmethod
     def create_service(api_name, api_version, scopes):
@@ -51,68 +52,78 @@ class BaseGoogleApi:
             return service
 
     @classmethod
-    def get_service(cls):
-        service = cls.create_service(api_name=cls.API_NAME,
-                                     api_version=cls.API_VERSION,
-                                     scopes=cls.SCOPES)
+    def get_service(cls, api_name):
+        data = cls.GOOGLE_SERVICES.get(api_name)
+        if not data:
+            raise ValueError('Error while creating google service')
+        service = cls.create_service(**data)
         return service
-
-
-class GoogleTask(BaseGoogleApi):
-    status = 'needsAction'
-
-    def __init__(self):
-        self.service = self.get_service()
-
-    def create_tasklist(self, tasklist_name):
-        response = self.service.tasklists().insert(
-            body={'title': tasklist_name}
-        ).execute()
-        return response
-
-    def get_list_tasklists(self):
-        response = self.service.tasklists().list().execute()
-        lst_items = response.get('items')
-        return lst_items
-
-    def delete_tasklist_by_name(self, tasklist_id):
-        response = self.service.tasklists().delete(
-            tasklist=tasklist_id
-        ).execute()
-        return response
-
-    @classmethod
-    def create_request_body(cls, title, notes=None, status=status, due=''):
-        body = {
-            "title": title,
-            "notes": notes,
-            "status": status,
-            "due": due if not due else cls.get_timestamp(due)
-        }
-        return body
-
-    def set_task(self, tasklist_id, body):
-        response = self.service.tasks().insert(
-            tasklist=tasklist_id,
-            body=body
-        ).execute()
-        return response
-
-    def get_tasks(self, tasklist_id):
-        response = self.service.tasks().get(tasklist=tasklist_id)
-        return response
 
     @staticmethod
     def get_timestamp(date: str) -> str:
         """
         Get string date formatted DD-MM-YYYY and return RFC 3339 timestamp
         """
-        _format = '%d-%m-%Y'
-        date = datetime.strptime(date, _format).astimezone().isoformat()
+        _format = '%d-%m-%Y %H:%M'
+        date = datetime.strptime(date, _format).isoformat('T')
         return str(date)
 
 
-my_tasklist_id = 'MDQ2ODI0ODU0Mjg2NjQ3MTQwMDA6MDow'
-task_service = GoogleTask()
-pd.set_option('display.max_columns', 10)
-print(pd.DataFrame(task_service.get_list_tasklists()).head())
+class GoogleCalendarAPI(BaseGoogleAPI):
+    def __init__(self):
+        self.service = self.get_service('calendar')
+
+    def get_calendarlist(self):
+        response = self.service.calendarList().list().execute()
+        return response
+
+    def create_event_body(self, summary, description, email, start_time,
+                          end_time, timezone='Europe/Minsk'):
+        start = self.get_timestamp(start_time)
+        end = self.get_timestamp(end_time)
+        event_body = {
+            'summary': summary,
+            'description': description,
+            'eventType': 'default',
+            'start': {
+                'dateTime': start,
+                'timeZone': timezone,
+            },
+            'end': {
+                'dateTime': end,
+                'timeZone': timezone,
+            },
+            'attendees': [
+                {'email': email}
+            ],
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email', 'minutes': 24 * 60},
+                    {'method': 'popup', 'minutes': 10},
+                ],
+            },
+        }
+        return event_body
+
+    def create_event(self, body, send_notification=False):
+        response = self.service.events().insert(
+            sendNotifications=send_notification,
+            calendarId='primary',
+            body=body
+        ).execute()
+        return response
+
+
+def get_spreadsheet_info(raw_url: str) -> dict:
+    """
+    Get raw url of your google sheet and return description info about your spreadsheet.
+    :param raw_url: Raw your of your google spreadsheet
+    :return: Content: {'spreadsheetId': 'spreadsheet_id', 'properties': {'title': 'spreadsheet_title', 'locale': 'en_US', 'autoRecalc': 'ON_CHANGE', 'timeZone': 'Europe/Moscow', 'defaultFormat': {'backgroundColor': {'red': 1, 'green': 1, 'blue': 1}, 'padding': {'top': 2, 'right': 3, 'bottom': 2, 'left': 3}, 'verticalAlignment': 'BOTTOM', 'wrapStrategy': 'OVERFLOW_CELL', 'textFormat': {'foregroundColor': {}, 'fontFamily': 'arial,sans,sans-serif', 'fontSize': 10, 'bold': False, 'italic': False, 'strikethrough': False, 'underline': False, 'foregroundColorStyle': {'rgbColor': {}}}, 'backgroundColorStyle': {'rgbColor': {'red': 1, 'green': 1, 'blue': 1}}}, 'spreadsheetTheme': {'primaryFontFamily': 'Arial', 'themeColors': [{'colorType': 'TEXT', 'color': {'rgbColor': {}}}, {'colorType': 'BACKGROUND', 'color': {'rgbColor': {'red': 1, 'green': 1, 'blue': 1}}}, {'colorType': 'ACCENT1', 'color': {'rgbColor': {'red': 0.25882354, 'green': 0.52156866, 'blue': 0.95686275}}}, {'colorType': 'ACCENT2', 'color': {'rgbColor': {'red': 0.91764706, 'green': 0.2627451, 'blue': 0.20784314}}}, {'colorType': 'ACCENT3', 'color': {'rgbColor': {'red': 0.9843137, 'green': 0.7372549, 'blue': 0.015686275}}}, {'colorType': 'ACCENT4', 'color': {'rgbColor': {'red': 0.20392157, 'green': 0.65882355, 'blue': 0.3254902}}}, {'colorType': 'ACCENT5', 'color': {'rgbColor': {'red': 1, 'green': 0.42745098, 'blue': 0.003921569}}}, {'colorType': 'ACCENT6', 'color': {'rgbColor': {'red': 0.27450982, 'green': 0.7411765, 'blue': 0.7764706}}}, {'colorType': 'LINK', 'color': {'rgbColor': {'red': 0.06666667, 'green': 0.33333334, 'blue': 0.8}}}]}}, 'sheets': [{'properties': {'sheetId': 0, 'title': 'Sheet1', 'index': 0, 'sheetType': 'GRID', 'gridProperties': {'rowCount': 1000, 'columnCount': 26}}}], 'spreadsheetUrl': 'spreadsheet_url'}
+    """
+    logger.info('Getting info about spreadsheet')
+    spreadsheet_id = raw_url.split('/d/')[1].split('/')[0]
+    url = f'https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}?key={GOOGLE_API_KEY}&alt=json'
+    bytes_data = requests.get(url).content
+    content = json.loads(bytes_data.decode('utf-8'))
+    return content

@@ -1,19 +1,17 @@
-import csv
+import pandas as pd
+
+from config import FIELDNAMES, logger
 
 
-fieldnames = ["Employee", "Manager", "Date", "Checkbox"]
-checkbox_status = {
-    "TRUE": True,
-    "FALSE": False
-}
+def build_sheet_url_to_download_csv(raw_url: str) -> str:
+    logger.info('Building url to download spreadsheet in csv format')
+    doc_id = raw_url.split('/d/')[1].split('/')[0]
+    return f'https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv'
 
 
-def get_unchecked(filename):
-    result = []
-    with open(filename, newline='') as my_file:
-        reader = csv.DictReader(my_file)
-        for line in reader:
-            res = {k: line[k] for i, k in enumerate(fieldnames)}
-            if not checkbox_status[res['Checkbox']]:
-                result.append(line)
-    return result
+def get_unchecked_list(raw_url):
+    logger.info('Checking for unchecked...')
+    url_to_download = build_sheet_url_to_download_csv(raw_url)
+    df = pd.read_csv(url_to_download, names=FIELDNAMES)
+    unchecked_list = df[df.Checkbox == 'FALSE'].to_dict('records')
+    return unchecked_list
