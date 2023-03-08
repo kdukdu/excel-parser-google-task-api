@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import os
 import os.path
-from datetime import datetime
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -10,14 +9,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from config import logger, GoogleServices
+
 
 class BaseGoogleApi:
-    GOOGLE_SERVICES = {
-        'calendar': {'api_name': 'calendar',
-                     'api_version': 'v3',
-                     'scopes': ['https://www.googleapis.com/auth/calendar']}
-    }
-
     @staticmethod
     def create_service(api_name, api_version, scopes):
         """Shows basic usage of the Tasks API.
@@ -43,33 +38,32 @@ class BaseGoogleApi:
         try:
             service = build(api_name, api_version, credentials=creds)
         except HttpError as err:
-            print(err)
+            logger.error(err)
         else:
             return service
 
     @classmethod
     def get_service(cls, api_name):
-        service = cls.create_service(**cls.GOOGLE_SERVICES[api_name])
+        service = cls.create_service(**api_name)
         return service
 
 
 class GoogleEventAPI(BaseGoogleApi):
     def __init__(self):
-        self.service = self.get_service('calendar')
+        self.service = self.get_service(GoogleServices.calendar.value)
 
-    def create_body(self, summary, description, start_date, end_date,
-                    email, timezone='Europe/Minsk'):
-        start_date = self.get_timestamp(start_date)
-        end_date = self.get_timestamp(end_date)
+    @staticmethod
+    def create_body(summary, description, start_datetime,
+                    end_datetime, email, timezone='Europe/Minsk'):
         body = {
             'summary': summary,
             'description': description,
             'start': {
-                'dateTime': start_date,
+                'dateTime': start_datetime,
                 'timeZone': timezone,
             },
             'end': {
-                'dateTime': end_date,
+                'dateTime': end_datetime,
                 'timeZone': timezone,
             },
             'attendees': [
@@ -91,12 +85,3 @@ class GoogleEventAPI(BaseGoogleApi):
             calendarId='primary',
             body=body
         ).execute()
-
-    @staticmethod
-    def get_timestamp(date: str) -> str:
-        """
-        Get string date formatted DD-MM-YYYY and return RFC 3339 timestamp
-        """
-        _format = '%d-%m-%Y %H:%M'
-        date = datetime.strptime(date, _format).isoformat('T')
-        return str(date)

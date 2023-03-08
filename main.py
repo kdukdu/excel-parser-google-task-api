@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date, time, datetime
 
 import pandas as pd
 import requests
@@ -19,7 +20,12 @@ class BaseEvent:
 
     def get_spreadsheet_title(self):
         url = f'https://sheets.googleapis.com/v4/spreadsheets/{self.spreadsheet_id}?key={GOOGLE_API_KEY}'
-        raw_content = requests.get(url).content
+        response = requests.get(url)
+        if response.status_code != 200:
+            logging.error(
+                f'Cannot get title from a spreadsheet by your url: {self.raw_url}')
+            raise requests.exceptions.InvalidURL
+        raw_content = response.content
         content = json.loads(raw_content.decode('utf-8'))
         return content['properties']['title']
 
@@ -33,6 +39,14 @@ class BaseEvent:
         data = pd.read_csv(url, names=FIELDNAMES)
         unchecked_data = data[data['Checkbox'] == 'FALSE'].to_dict('records')
         return unchecked_data
+
+    @staticmethod
+    def set_datetime(hour, minute):
+        date_time = datetime.combine(
+            date.today(),
+            time(hour=hour, minute=minute)
+        ).isoformat('T')
+        return date_time
 
     def main(self):
         if not self.unchecked_data:
@@ -51,8 +65,8 @@ class BaseEvent:
             body = event_service.create_body(
                 summary=summary,
                 description=description,
-                start_date='07-03-2023 19:00',
-                end_date='07-03-2023 19:10',
+                start_datetime=self.set_datetime(hour=19, minute=0),
+                end_datetime=self.set_datetime(hour=19, minute=30),
                 email=email
             )
             event_service.create_event(body=body, send_notification=True)
