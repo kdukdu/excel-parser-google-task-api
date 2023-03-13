@@ -1,11 +1,11 @@
 import json
 import logging
-from datetime import date, time, datetime
+from datetime import time, datetime
 
 import pandas as pd
 import requests
 
-from config import FIELDNAMES, GOOGLE_API_KEY, SHEET_URL
+from config import FIELDNAMES, GOOGLE_API_KEY, SHEET_URL, CONFIG_EVENT
 from google_service import GoogleEventAPI
 
 
@@ -37,14 +37,14 @@ class BaseEvent:
         logging.info('Getting unchecked data...')
         url = self.build_url_to_csv_download()
         data = pd.read_csv(url, names=FIELDNAMES)
-        unchecked_data = data[data['Checkbox'] == 'FALSE'].to_dict('records')
+        unchecked_data = data[data['Checkbox'] == 'TRUE'].to_dict('records')
         return unchecked_data
 
     @staticmethod
-    def set_datetime(hour, minute):
+    def set_datetime(day, delta, hour: int, minute: int):
+        day = datetime.strptime(day, '%d-%m-%Y') + delta
         date_time = datetime.combine(
-            date.today(),
-            time(hour=hour, minute=minute)
+            day, time(hour=hour, minute=minute)
         ).isoformat('T')
         return date_time
 
@@ -62,15 +62,28 @@ class BaseEvent:
             summary = f'{item["Employee"]} - {spreadsheet_title}'
             description = f'Link to google sheets {self.raw_url}'
             email = item['Manager']
-            body = event_service.create_body(
-                summary=summary,
-                description=description,
-                start_datetime=self.set_datetime(hour=19, minute=0),
-                end_datetime=self.set_datetime(hour=19, minute=30),
-                email=email
-            )
-            event_service.create_event(body=body, send_notification=True)
-            logging.info(f'  Event #{i} for {email} has been created.')
+            day = item['Date']
+
+            for event, config in CONFIG_EVENT.items():
+                if item.get(event) == 'FALSE':
+                    continue
+
+                pre_summary = config['pre_summary']
+                body = event_service.create_body(
+                    summary=f'{pre_summary} - {summary}',
+                    description=description,
+                    start_datetime=self.set_datetime(day=day,
+                                                     delta=config['delta'],
+                                                     hour=19,
+                                                     minute=0),
+                    end_datetime=self.set_datetime(day=day,
+                                                   delta=config['delta'],
+                                                   hour=19,
+                                                   minute=30),
+                    email=email
+                )
+                event_service.create_event(body=body, send_notification=True)
+                logging.info(f'  Event #{i} for {email} has been created.')
         logging.info(f'Created {len(self.unchecked_data)} event[s]')
 
 

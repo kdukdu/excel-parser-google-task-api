@@ -1,3 +1,4 @@
+import datetime
 import logging
 import os
 from enum import Enum
@@ -12,10 +13,18 @@ load_dotenv()
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 SHEET_URL = os.getenv('SHEET_URL')
-FIELDNAMES = os.getenv('SHEET_FIELDNAMES').split()
+FIELDNAMES = ['Employee', 'Manager', 'Date', 'OneToOne', 'Review', 'Checkbox']
 
 
 class GoogleServices(Enum):
     calendar = {'api_name': 'calendar',
                 'api_version': 'v3',
                 'scopes': ['https://www.googleapis.com/auth/calendar']}
+
+
+CONFIG_EVENT = {
+    'OneToOne': {'delta': datetime.timedelta(days=30),
+                 'pre_summary': '1 to 1'},
+    'Review': {'delta': datetime.timedelta(days=120),
+               'pre_summary': 'Review'},
+}
