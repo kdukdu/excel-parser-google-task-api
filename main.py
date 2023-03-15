@@ -48,13 +48,29 @@ class BaseEvent:
         ).isoformat('T')
         return date_time
 
+    def create_body_and_event(self, summary, description,
+                              day, delta, email):
+        event_service = GoogleEventAPI()
+        body = event_service.create_body(
+            summary=summary,
+            description=description,
+            start_datetime=self.set_datetime(day=day,
+                                             delta=delta,
+                                             hour=19,
+                                             minute=0),
+            end_datetime=self.set_datetime(day=day,
+                                           delta=delta,
+                                           hour=19,
+                                           minute=30),
+            email=email
+        )
+        event_service.create_event(body=body, send_notification=True)
+
     def main(self):
         if not self.unchecked_data:
             logging.info('There is no unchecked data.')
             return None
-
         logging.info(f'There is[are] {len(self.unchecked_data)} value[s]')
-        event_service = GoogleEventAPI()
         spreadsheet_title = self.get_spreadsheet_title()
 
         logging.info('Starting process of creating events...')
@@ -64,26 +80,20 @@ class BaseEvent:
             email = item['Manager']
             day = item['Date']
 
-            for event, config in CONFIG_EVENT.items():
-                if item.get(event) == 'FALSE':
-                    continue
+            if item.get('OneToOne') == 'TRUE':
+                pre_summary = CONFIG_EVENT['OneToOne']['pre_summary']
+                delta = CONFIG_EVENT['OneToOne']['delta']
+                summary_o2o = f'{pre_summary} - {summary}'
+                self.create_body_and_event(summary_o2o, description,
+                                           day, delta, email)
 
-                pre_summary = config['pre_summary']
-                body = event_service.create_body(
-                    summary=f'{pre_summary} - {summary}',
-                    description=description,
-                    start_datetime=self.set_datetime(day=day,
-                                                     delta=config['delta'],
-                                                     hour=19,
-                                                     minute=0),
-                    end_datetime=self.set_datetime(day=day,
-                                                   delta=config['delta'],
-                                                   hour=19,
-                                                   minute=30),
-                    email=email
-                )
-                event_service.create_event(body=body, send_notification=True)
-                logging.info(f'  Event #{i} for {email} has been created.')
+            if item.get('Review') == 'TRUE':
+                pre_summary = CONFIG_EVENT['Review']['pre_summary']
+                delta = CONFIG_EVENT['Review']['delta']
+                summary_rew = f'{pre_summary} - {summary}'
+                self.create_body_and_event(summary_rew, description,
+                                           day, delta, email)
+
         logging.info(f'Created {len(self.unchecked_data)} event[s]')
 
 
