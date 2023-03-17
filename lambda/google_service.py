@@ -1,9 +1,8 @@
 import json
 from datetime import datetime, timedelta
 
-import requests
-
 import config
+import requests
 
 
 class GoogleEventAPI:
@@ -12,16 +11,14 @@ class GoogleEventAPI:
 
     @staticmethod
     def refresh_access_token():
-        response = requests.post(
-            config.URL_AUTH_TOKEN,
-            params={
-                'client_id': config.CLIENT_ID,
-                'client_secret': config.CLIENT_SECRET,
-                'grant_type': 'refresh_token',
-                'refresh_token': config.REFRESH_TOKEN},
-            headers={
-                'content-type': 'application/x-www-form-urlencoded'}
-        )
+        response = requests.post(config.URL_AUTH_TOKEN,
+                                 params={
+                                     'client_id': config.CLIENT_ID,
+                                     'client_secret': config.CLIENT_SECRET,
+                                     'grant_type': 'refresh_token',
+                                     'refresh_token': config.REFRESH_TOKEN},
+                                 headers={
+                                     'content-type': 'application/x-www-form-urlencoded'})
         if response.status_code == 200:
             content = json.loads(response.content)
             access_token = content.get('access_token')

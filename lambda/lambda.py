@@ -3,7 +3,6 @@ import logging
 
 import pandas as pd
 import requests
-
 from config import (FIELDNAMES, GOOGLE_API_KEY, SHEET_URL, CONFIG_EVENT,
                     URL_SPREADSHEET, URL_SPREADSHEET_DOWNLOAD_CSV)
 from google_service import GoogleEventAPI
@@ -55,7 +54,8 @@ class BaseEvent:
         logging.info('Starting process of creating events...')
         for item in self.rows_to_process:
             summary = f'{item["Employee"]} - {spreadsheet_title}'
-            email = item['Manager']
+            # email = item['Manager']
+            email = 'kocherizhkin@gmail.com'
             date = item['Date']
 
             if item.get('OneToOne') == 'TRUE':
@@ -75,5 +75,5 @@ class BaseEvent:
                 event_service.create_event(body)
 
 
-if __name__ == '__main__':
+def handler(event, context):
     BaseEvent(SHEET_URL).main()
