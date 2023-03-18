@@ -54,8 +54,7 @@ class BaseEvent:
         logging.info('Starting process of creating events...')
         for item in self.rows_to_process:
             summary = f'{item["Employee"]} - {spreadsheet_title}'
-            # email = item['Manager']
-            email = 'kocherizhkin@gmail.com'
+            email = item['Manager']
             date = item['Date']
 
             if item.get('OneToOne') == 'TRUE':
